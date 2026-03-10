@@ -8,31 +8,170 @@
 </head>
 <body>
     <div class="container">
-        <div class="login-box">
-            <h1>Expense Tracker</h1>
-            <h2>Login</h2>
+        <!-- Login Box -->
+        <div class="auth-box login-box" id="login-box">
+            <div class="logo-section">
+                <div class="logo">💰</div>
+                <h1>Expense Tracker</h1>
+                <p class="tagline">Smart Budget Management</p>
+            </div>
             
-            <!-- Display error message if login fails -->
-            <div id="error-message" class="error-message"></div>
+            <!-- Display messages -->
+            <div id="message" class="message"></div>
             
             <form method="POST" action="login.php" id="login-form">
                 <div class="form-group">
-                    <label for="email">Email:</label>
+                    <label for="email">Email Address</label>
                     <input type="email" id="email" name="email" required placeholder="Enter your email">
                 </div>
                 
                 <div class="form-group">
-                    <label for="password">Password:</label>
+                    <label for="password">Password</label>
                     <input type="password" id="password" name="password" required placeholder="Enter your password">
                 </div>
                 
-                <button type="submit" class="btn-login">Login</button>
+                <button type="submit" class="btn-primary btn-full">
+                    <span>Login</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </button>
             </form>
             
-            <p class="signup-link">Don't have an account? <a href="#">Sign up here</a></p>
+            <div class="auth-divider">
+                <span>or</span>
+            </div>
+            
+            <p class="auth-switch">
+                Don't have an account? 
+                <a href="#" id="show-signup">Create one</a>
+            </p>
+        </div>
+
+        <!-- Signup Box -->
+        <div class="auth-box signup-box hidden" id="signup-box">
+            <div class="logo-section">
+                <div class="logo">💰</div>
+                <h1>Create Account</h1>
+                <p class="tagline">Start tracking your expenses</p>
+            </div>
+            
+            <!-- Display messages -->
+            <div id="signup-message" class="message"></div>
+            
+            <form method="POST" action="signup.php" id="signup-form">
+                <div class="form-group">
+                    <label for="signup-name">Full Name</label>
+                    <input type="text" id="signup-name" name="name" required placeholder="Enter your full name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="signup-email">Email Address</label>
+                    <input type="email" id="signup-email" name="email" required placeholder="Enter your email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" name="password" required placeholder="Create a password (min 6 chars)">
+                </div>
+                
+                <div class="form-group">
+                    <label for="signup-confirm-password">Confirm Password</label>
+                    <input type="password" id="signup-confirm-password" name="confirm_password" required placeholder="Confirm your password">
+                </div>
+                
+                <button type="submit" class="btn-primary btn-full">
+                    <span>Create Account</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="8.5" cy="7" r="4"/>
+                        <line x1="20" y1="8" x2="20" y2="14"/>
+                        <line x1="23" y1="11" x2="17" y2="11"/>
+                    </svg>
+                </button>
+            </form>
+            
+            <div class="auth-divider">
+                <span>or</span>
+            </div>
+            
+            <p class="auth-switch">
+                Already have an account? 
+                <a href="#" id="show-login">Login here</a>
+            </p>
         </div>
     </div>
     
     <script src="script.js"></script>
+    <script>
+        // Toggle between login and signup
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginBox = document.getElementById('login-box');
+            const signupBox = document.getElementById('signup-box');
+            const showSignup = document.getElementById('show-signup');
+            const showLogin = document.getElementById('show-login');
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Check for signup mode
+            if (urlParams.get('mode') === 'signup') {
+                loginBox.classList.add('hidden');
+                signupBox.classList.remove('hidden');
+            }
+            
+            // Show signup form
+            showSignup.addEventListener('click', function(e) {
+                e.preventDefault();
+                loginBox.classList.add('hidden');
+                signupBox.classList.remove('hidden');
+            });
+            
+            // Show login form
+            showLogin.addEventListener('click', function(e) {
+                e.preventDefault();
+                signupBox.classList.add('hidden');
+                loginBox.classList.remove('hidden');
+            });
+            
+            // Show error message
+            const error = urlParams.get('error');
+            if (error) {
+                const messageDiv = document.getElementById('message');
+                if (messageDiv) {
+                    messageDiv.textContent = decodeURIComponent(error);
+                    messageDiv.className = 'message error';
+                    messageDiv.style.display = 'block';
+                }
+            }
+            
+            // Show success message
+            const message = urlParams.get('message');
+            if (message) {
+                const messageDiv = document.getElementById('message') || document.getElementById('signup-message');
+                if (messageDiv) {
+                    messageDiv.textContent = decodeURIComponent(message);
+                    messageDiv.className = 'message success';
+                    messageDiv.style.display = 'block';
+                }
+            }
+            
+            // Form validation
+            const signupForm = document.getElementById('signup-form');
+            if (signupForm) {
+                signupForm.addEventListener('submit', function(e) {
+                    const password = document.getElementById('signup-password').value;
+                    const confirmPassword = document.getElementById('signup-confirm-password').value;
+                    
+                    if (password !== confirmPassword) {
+                        e.preventDefault();
+                        const messageDiv = document.getElementById('signup-message');
+                        messageDiv.textContent = 'Passwords do not match!';
+                        messageDiv.className = 'message error';
+                        messageDiv.style.display = 'block';
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
+
