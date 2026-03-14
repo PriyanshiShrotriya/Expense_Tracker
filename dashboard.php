@@ -27,6 +27,7 @@ $month_name = getMonthName($current_month);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?php echo generate_csrf_token(); ?>">
     <title>Expense Tracker - Dashboard</title>
     <link rel="stylesheet" href="style.css">
     <!-- Chart.js for analytics -->

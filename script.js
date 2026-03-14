@@ -638,15 +638,35 @@ function closeExpenseModal() {
     document.getElementById('expense-modal').style.display = 'none';
 }
 
+// Validate expense form
+function validateExpenseForm() {
+    const category = document.getElementById('expense-category').value;
+    const amount = parseFloat(document.getElementById('expense-amount').value);
+    const date = document.getElementById('expense-date').value;
+    
+    if (!category) return 'Please select a category';
+    if (isNaN(amount) || amount < 0.01) return 'Amount must be at least $0.01';
+    if (!date) return 'Please select a date';
+    
+    return null;
+}
+
 // Handle expense submit
 async function handleExpenseSubmit(e) {
     e.preventDefault();
     
+    const error = validateExpenseForm();
+    if (error) {
+        showToast(error, 'error');
+        return;
+    }
+    
     const expenseId = document.getElementById('expense-id').value;
     const action = expenseId ? 'update_expense' : 'add_expense';
     
+    showLoading('expense-form', expenseId ? 'Updating...' : 'Adding...');
+    
     const data = {
-        action: action,
         id: expenseId,
         category_id: document.getElementById('expense-category').value,
         amount: document.getElementById('expense-amount').value,
@@ -657,6 +677,8 @@ async function handleExpenseSubmit(e) {
     try {
         const response = await apiCall(action, data);
         
+        hideLoading('expense-form');
+        
         if (response.success) {
             showToast(expenseId ? 'Expense updated!' : 'Expense added!', 'success');
             closeExpenseModal();
@@ -665,10 +687,12 @@ async function handleExpenseSubmit(e) {
                 loadExpenses();
             }
         } else {
-            showToast(response.message || 'Error', 'error');
+            showToast(response.message || 'Error saving expense', 'error');
         }
     } catch (error) {
-        showToast('Error saving expense', 'error');
+        hideLoading('expense-form');
+        showToast('Network error. Please try again.', 'error');
+        console.error('API Error:', error);
     }
 }
 
@@ -751,16 +775,25 @@ async function handleCategorySubmit(e) {
     const categoryId = document.getElementById('category-id').value;
     const action = categoryId ? 'update_category' : 'add_category';
     
+    showLoading('category-form', categoryId ? 'Updating...' : 'Adding...');
+    
     const data = {
-        action: action,
         id: categoryId,
-        name: document.getElementById('category-name').value,
+        name: document.getElementById('category-name').value.trim(),
         icon: selectedIcon,
         color: document.getElementById('category-color').value
     };
     
+    if (!data.name) {
+        hideLoading('category-form');
+        showToast('Category name is required', 'error');
+        return;
+    }
+    
     try {
         const response = await apiCall(action, data);
+        
+        hideLoading('category-form');
         
         if (response.success) {
             showToast(categoryId ? 'Category updated!' : 'Category added!', 'success');
@@ -768,10 +801,11 @@ async function handleCategorySubmit(e) {
             await loadCategories();
             renderCategoriesUI();
         } else {
-            showToast(response.message || 'Error', 'error');
+            showToast(response.message || 'Error saving category', 'error');
         }
     } catch (error) {
-        showToast('Error saving category', 'error');
+        hideLoading('category-form');
+        showToast('Network error. Please try again.', 'error');
     }
 }
 
@@ -828,11 +862,20 @@ function closeBudgetModal() {
 async function handleBudgetSubmit(e) {
     e.preventDefault();
     
+    const category_id = document.getElementById('budget-category').value;
+    const amount = parseFloat(document.getElementById('budget-amount').value);
+    
+    if (!category_id || amount < 0.01) {
+        showToast('Valid category and amount (>= $0.01) required', 'error');
+        return;
+    }
+    
+    showLoading('budget-form', 'Saving...');
+    
     const data = {
-        action: 'set_budget',
         id: document.getElementById('budget-id').value,
-        category_id: document.getElementById('budget-category').value,
-        amount: document.getElementById('budget-amount').value,
+        category_id: category_id,
+        amount: amount,
         month: currentMonth,
         year: currentYear
     };
@@ -840,16 +883,19 @@ async function handleBudgetSubmit(e) {
     try {
         const response = await apiCall('set_budget', data);
         
+        hideLoading('budget-form');
+        
         if (response.success) {
             showToast('Budget set successfully!', 'success');
             closeBudgetModal();
             loadBudgets();
             loadDashboardData();
         } else {
-            showToast(response.message || 'Error', 'error');
+            showToast(response.message || 'Error setting budget', 'error');
         }
     } catch (error) {
-        showToast('Error setting budget', 'error');
+        hideLoading('budget-form');
+        showToast('Network error. Please try again.', 'error');
     }
 }
 
@@ -874,10 +920,38 @@ async function deleteBudget(id) {
 
 // ============ HELPER FUNCTIONS ============
 
+// Get CSRF token from meta tag
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+}
+
+// Show loading state on forms
+function showLoading(formId, buttonText = 'Saving...') {
+    const form = document.getElementById(formId);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span class="spinner"></span> ${buttonText}`;
+    form.dataset.originalButton = originalText;
+}
+
+// Hide loading state
+function hideLoading(formId) {
+    const form = document.getElementById(formId);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = form.dataset.originalButton || 'Save';
+    delete form.dataset.originalButton;
+}
+
 // API call wrapper
 async function apiCall(action, data) {
     const formData = new FormData();
     formData.append('action', action);
+    formData.append('csrf_token', getCsrfToken());
     
     for (const key in data) {
         formData.append(key, data[key]);
