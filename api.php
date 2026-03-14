@@ -8,6 +8,12 @@ require_once 'config.php';
 // Set response type to JSON
 header('Content-Type: application/json');
 
+// Check CSRF token for POST requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !validate_csrf_token($_POST['csrf_token'] ?? '')) {
+    echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+    exit();
+}
+
 // Check if user is logged in
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
@@ -231,10 +237,31 @@ function addExpense($conn, $user_id) {
     $description = isset($_POST['description']) ? trim($_POST['description']) : '';
     $expense_date = isset($_POST['expense_date']) ? $_POST['expense_date'] : date('Y-m-d');
     
-    if ($category_id == 0 || $amount == 0) {
-        echo json_encode(['success' => false, 'message' => 'Category and amount are required']);
+    // Enhanced validation
+    if ($category_id <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Valid category is required']);
         return;
     }
+    if ($amount < 0.01) {
+        echo json_encode(['success' => false, 'message' => 'Amount must be at least $0.01']);
+        return;
+    }
+    if (!DateTime::createFromFormat('Y-m-d', $expense_date)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid date format']);
+        return;
+    }
+    
+    // Verify category belongs to user
+    $check = "SELECT id FROM categories WHERE id = ? AND user_id = ?";
+    $stmt = $conn->prepare($check);
+    $stmt->bind_param("ii", $category_id, $user_id);
+    $stmt->execute();
+    if ($stmt->num_rows == 0) {
+        echo json_encode(['success' => false, 'message' => 'Invalid category']);
+        $stmt->close();
+        return;
+    }
+    $stmt->close();
     
     $query = "INSERT INTO expenses (user_id, category_id, amount, description, expense_date) VALUES (?, ?, ?, ?, ?)";
     $stmt = $conn->prepare($query);
@@ -243,7 +270,7 @@ function addExpense($conn, $user_id) {
     if ($stmt->execute()) {
         echo json_encode(['success' => true, 'message' => 'Expense added successfully', 'id' => $stmt->insert_id]);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Failed to add expense']);
+        echo json_encode(['success' => false, 'message' => 'Failed to add expense: ' . $conn->error]);
     }
     $stmt->close();
 }
@@ -255,10 +282,35 @@ function updateExpense($conn, $user_id) {
     $description = isset($_POST['description']) ? trim($_POST['description']) : '';
     $expense_date = isset($_POST['expense_date']) ? $_POST['expense_date'] : date('Y-m-d');
     
-    if ($id == 0 || $category_id == 0 || $amount == 0) {
-        echo json_encode(['success' => false, 'message' => 'Invalid data']);
+    // Enhanced validation
+    if ($id <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Invalid expense ID']);
         return;
     }
+    if ($category_id <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Valid category is required']);
+        return;
+    }
+    if ($amount < 0.01) {
+        echo json_encode(['success' => false, 'message' => 'Amount must be at least $0.01']);
+        return;
+    }
+    if (!DateTime::createFromFormat('Y-m-d', $expense_date)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid date format']);
+        return;
+    }
+    
+    // Verify category belongs to user
+    $check = "SELECT id FROM categories WHERE id = ? AND user_id = ?";
+    $stmt = $conn->prepare($check);
+    $stmt->bind_param("ii", $category_id, $user_id);
+    $stmt->execute();
+    if ($stmt->num_rows == 0) {
+        echo json_encode(['success' => false, 'message' => 'Invalid category']);
+        $stmt->close();
+        return;
+    }
+    $stmt->close();
     
     $query = "UPDATE expenses SET category_id = ?, amount = ?, description = ?, expense_date = ? WHERE id = ? AND user_id = ?";
     $stmt = $conn->prepare($query);
@@ -267,7 +319,7 @@ function updateExpense($conn, $user_id) {
     if ($stmt->execute()) {
         echo json_encode(['success' => true, 'message' => 'Expense updated successfully']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Failed to update expense']);
+        echo json_encode(['success' => false, 'message' => 'Failed to update expense: ' . $conn->error]);
     }
     $stmt->close();
 }
